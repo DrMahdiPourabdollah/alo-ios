@@ -13,8 +13,6 @@ on:
         description: "Build a signed IPA (requires signing secrets)"
         type: boolean
         default: false
-  push:
-    branches: [ main ]
 
 env:
   FLUTTER_VERSION: "3.35.7"
@@ -35,13 +33,17 @@ jobs:
           cache: true
 
       # ---- Model assets (360 ASR/TTS files) ---------------------------------
-      # The release APK is NOT committed. Provide it as a base64 secret so the
-      # exact, hash-verified models are restored inside the runner.
-      - name: Restore model assets from release APK
-        if: ${{ secrets.ALO_RELEASE_APK_B64 != '' }}
+      # The 1 GB release APK is attached to the GitHub Release tagged
+      # "models-v2.4.2". We download it with the built-in token and restore the
+      # exact, hash-verified models into the asset tree before building.
+      - name: Download release APK and restore models
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "${{ secrets.ALO_RELEASE_APK_B64 }}" | base64 --decode > alo-release.apk
-          python3 restore_models.py "$PWD/alo-release.apk"
+          gh release download models-v2.4.2 --repo "${{ github.repository }}" --pattern "*.apk" --dir "$RUNNER_TEMP"
+          APK="$(ls "$RUNNER_TEMP"/*.apk | head -1)"
+          echo "Restoring models from: $APK"
+          python3 restore_models.py "$APK"
           python3 verify_models.py
 
       - name: Flutter dependencies
