@@ -1,0 +1,48 @@
+# Codemagic free-tier iOS build for alo 2.4.2 (Flutter).
+# Free plan: ~500 build minutes/month on macOS. https://codemagic.io
+#
+# Unsigned build works out of the box. For a signed IPA, connect your Apple
+# Developer account in the Codemagic UI (Teams -> Code signing identities) and
+# switch `ios_signing` on in the environment below.
+
+workflows:
+  ios-alo:
+    name: alo iOS 2.4.2
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: 3.35.7
+      xcode: latest
+      vars:
+        BUNDLE_ID: "ir.alo.aloFinance"
+      # ios_signing:                       # <- uncomment after adding an Apple account
+      #   distribution_type: development    #    development | app_store | ad_hoc
+      #   bundle_identifier: ir.alo.aloFinance
+    scripts:
+      - name: Restore model assets (optional)
+        script: |
+          # Upload the released APK as an encrypted env var ALO_RELEASE_APK_B64
+          if [ -n "$ALO_RELEASE_APK_B64" ]; then
+            echo "$ALO_RELEASE_APK_B64" | base64 --decode > alo-release.apk
+            python3 restore_models.py "$PWD/alo-release.apk"
+            python3 verify_models.py
+          else
+            echo "No APK provided — building without voice model assets."
+          fi
+      - name: Flutter packages
+        script: flutter pub get
+      - name: Analyze
+        script: flutter analyze
+      - name: Test
+        script: flutter test --no-pub
+      - name: Build (unsigned unless signing configured)
+        script: |
+          if [ -n "$CM_CERTIFICATE" ]; then
+            flutter build ipa --release
+          else
+            flutter build ios --release --no-codesign
+          fi
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/ios/iphoneos/Runner.app
+      - flutter_drive.log

@@ -1,0 +1,8 @@
+ASR: multilingual ggml-small-q5_1.bin, 190085487 bytes
+SHA256: ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb
+Download: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin
+Delivered separately as ALO-Persian-ASR.bin; install via settings or app download.
+Optional TTS: ALO-Persian-Voice-Pack.zip with 359 pinned tts/* files.
+Voice source: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-fa_IR-amir-medium.tar.bz2
+APK/source ZIP exclude ASR/TTS model binaries; assets/model_manifest.json pins sizes and SHA256.
+Bundled VAD: Silero ONNX; license assets/licenses/Silero-VAD-MIT.txt.

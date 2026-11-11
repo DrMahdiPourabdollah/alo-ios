@@ -1,0 +1,23 @@
+{
+  "android": {
+    "version": "2.4.0+5",
+    "package": "ir.alo.alo_finance",
+    "runtime_matches_delivered_apk_source": true,
+    "previous_test_count": 605,
+    "fresh_app_rebuild_this_handoff": false
+  },
+  "ios": {
+    "version": "2.4.1+6",
+    "bundle_id": "ir.alo.aloFinance",
+    "previous_shared_test_count": 611,
+    "native_build": false,
+    "signed_ipa": false
+  },
+  "model_assets_in_code_archives": false,
+  "model_restoration": "restore_models.py with prior alo APK; 360 SHA256-verified ASR/TTS assets",
+  "private_signing_keys_in_archives": false,
+  "runtime_file_comparisons": {
+    "android": 477,
+    "ios": 498
+  }
+}

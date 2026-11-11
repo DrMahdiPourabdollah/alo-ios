@@ -1,0 +1,15 @@
+{
+  "version": "2.4.1+6",
+  "bundle_id": "ir.alo.aloFinance",
+  "iOS_min": "17.0",
+  "host": "Linux",
+  "flutter_tests_passed": 611,
+  "flutter_analyze": "No issues found",
+  "model_assets_verified": 360,
+  "native_swift_syntax": "parsed only",
+  "native_xcode_build": "NOT RUN",
+  "native_xctest": "NOT RUN",
+  "physical_iphone_test": "NOT RUN",
+  "signed_ipa": "NOT PRODUCED",
+  "visual_previews": "Flutter-rendered on Linux, iOS theme and simulated safe-area, illustrative data"
+}

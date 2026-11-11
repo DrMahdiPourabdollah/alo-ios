@@ -1,0 +1,486 @@
+--- original/lib/domain/persian_number_parser.dart
++++ 2.4.2/lib/domain/persian_number_parser.dart
+@@ -12,10 +12,9 @@
+   );
+   ExactNumber operator *(int value) =>
+       ExactNumber(numerator * BigInt.from(value), denominator);
+-  int? get integer =>
+-      numerator % denominator == BigInt.zero
+-          ? (numerator ~/ denominator).toInt()
+-          : null;
++  int? get integer => numerator % denominator == BigInt.zero
++      ? (numerator ~/ denominator).toInt()
++      : null;
+   bool get valid =>
+       numerator >= BigInt.zero &&
+       numerator <= BigInt.from(100000000000000) * denominator;
+@@ -106,13 +105,15 @@
+         continue;
+       }
+       if (group.isNotEmpty && group.first == 'و') group.removeAt(0);
+-      final g =
+-          group.isEmpty
+-              ? ExactNumber(
+-                lastScale > 0 && scale > lastScale ? BigInt.zero : BigInt.one,
+-              )
+-              : _group(group);
++      final g = group.isEmpty
++          ? ExactNumber(
++              lastScale > 0 && scale > lastScale ? BigInt.zero : BigInt.one,
++            )
++          : _group(group);
+       if (g == null) return null;
++      // Repeating a scale without a new explicit group is ambiguous,
++      // e.g. "هزار هزار" must not silently become two thousand.
++      if (lastScale == scale && group.isEmpty) return null;
+       if (lastScale > 0 && scale > lastScale) {
+         total = (total + g) * scale;
+       } else {
+@@ -156,10 +157,9 @@
+       } else {
+         final fraction = _group(right);
+         if (fraction?.integer == null) return null;
+-        raw =
+-            right.length == 1 && RegExp(r'^\d+$').hasMatch(right.single)
+-                ? right.single
+-                : '${fraction!.integer}';
++        raw = right.length == 1 && RegExp(r'^\d+$').hasMatch(right.single)
++            ? right.single
++            : '${fraction!.integer}';
+       }
+       return whole! +
+           ExactNumber(BigInt.parse(raw), BigInt.from(10).pow(raw.length));
+@@ -186,12 +186,11 @@
+       }
+       final n = words[ts[i]];
+       if (n == null) return null;
+-      final category =
+-          n >= 100
+-              ? 3
+-              : n >= 20
+-              ? 2
+-              : 1;
++      final category = n >= 100
++          ? 3
++          : n >= 20
++          ? 2
++          : 1;
+       if (category >= previousCategory || n == 0 && ts.length > 1) return null;
+       previousCategory = category;
+       value += n;
+--- original/lib/domain/persian_text_normalizer.dart
++++ 2.4.2/lib/domain/persian_text_normalizer.dart
+@@ -15,15 +15,14 @@
+     for (var i = 0; i < 10; i++) {
+       s = s.replaceAll('۰۱۲۳۴۵۶۷۸۹'[i], '$i').replaceAll('٠١٢٣٤٥٦٧٨٩'[i], '$i');
+     }
+-    s =
+-        s
+-            .replaceAllMapped(
+-              RegExp(r'\d{1,3}(?:[٬,]\d{3})+(?!\d)'),
+-              (m) => m[0]!.replaceAll(RegExp('[٬,]'), ''),
+-            )
+-            .replaceAll('٫', '.')
+-            .replaceAll(RegExp(r'\s+'), ' ')
+-            .trim();
++    s = s
++        .replaceAllMapped(
++          RegExp(r'(?<![\d٬,])\d{1,3}(?:[٬,]\d{3})+(?!\d|[٬,]\d)'),
++          (m) => m[0]!.replaceAll(RegExp('[٬,]'), ''),
++        )
++        .replaceAll('٫', '.')
++        .replaceAll(RegExp(r'\s+'), ' ')
++        .trim();
+     const replacements = {
+       'هشت صد': 'هشتصد',
+       'پان صد': 'پانصد',
+--- original/lib/ui/compose.dart
++++ 2.4.2/lib/ui/compose.dart
+@@ -33,7 +33,7 @@
+   late final AnimationController _animation;
+   Timer? _timer;
+   _Stage _stage = _Stage.idle;
+-  int _seconds = 0, _progress = 0, _audible = 0, _samples = 0;
++  int _seconds = 0, _progress = 0;
+   double _level = 0;
+   String? _error, _rawTranscript;
+   bool _starting = false;
+@@ -55,9 +55,24 @@
+ 
+   @override
+   void didChangeAppLifecycleState(AppLifecycleState state) {
+-    if (state == AppLifecycleState.inactive && _stage == _Stage.recording) {
++    if ((state == AppLifecycleState.inactive ||
++            state == AppLifecycleState.paused ||
++            state == AppLifecycleState.hidden ||
++            state == AppLifecycleState.detached) &&
++        _stage == _Stage.recording) {
+       _timer?.cancel();
+-      unawaited(_voice.cancel());
++      _animation.stop();
++      setState(() => _stage = _Stage.processing);
++      unawaited(_cancelInterruptedRecording());
++    }
++  }
++
++  Future<void> _cancelInterruptedRecording() async {
++    try {
++      await _voice.cancel();
++    } catch (_) {
++      // The recorder may already have stopped after an OS interruption.
++    } finally {
+       if (mounted) {
+         setState(() {
+           _stage = _Stage.idle;
+@@ -74,7 +89,11 @@
+     if (_stage == _Stage.installing) ModelManager.cancelDownload();
+     _animation.dispose();
+     _text.dispose();
+-    unawaited(_voice.dispose());
++    unawaited(
++      _voice.dispose().catchError((Object _) {
++        // Widget teardown must not emit an unhandled platform exception.
++      }),
++    );
+     super.dispose();
+   }
+ 
+@@ -106,27 +125,34 @@
+         await _voice.cancel();
+         return;
+       }
++      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
++        await _voice.cancel();
++        if (mounted) {
++          setState(() => _error = 'ضبط متوقف شد. دوباره بگویید یا بنویسید.');
++        }
++        return;
++      }
+       _animation.repeat();
+       HapticFeedback.lightImpact();
+       setState(() {
+         _stage = _Stage.recording;
+         _seconds = 0;
+-        _audible = 0;
+-        _samples = 0;
+         _progress = 0;
+       });
+       _timer = Timer.periodic(const Duration(milliseconds: 250), (t) async {
+         if (!mounted || _stage != _Stage.recording) return;
++        setState(() => _seconds = t.tick ~/ 4);
++        // Enforce the limit even when amplitude reporting fails or stalls.
++        if (t.tick >= 240) {
++          unawaited(_finish());
++          return;
++        }
+         try {
+           final amp = await _voice.amplitude();
+           if (!mounted || _stage != _Stage.recording) return;
+-          _samples++;
+-          if (amp > -48) _audible++;
+           setState(() {
+             _level = ((amp + 60) / 60).clamp(0, 1);
+-            _seconds = t.tick ~/ 4;
+           });
+-          if (t.tick >= 240) unawaited(_finish());
+         } catch (_) {
+           /* Microphone amplitude is advisory; actual stop handles errors. */
+         }
+@@ -151,16 +177,8 @@
+     if (_stage != _Stage.recording) return;
+     _timer?.cancel();
+     _animation.stop();
+-    // Reject obvious silence; this is not a guarantee of speech detection.
+-    if (_samples > 3 && _audible == 0) {
+-      await _voice.cancel();
+-      if (!mounted) return;
+-      setState(() {
+-        _stage = _Stage.idle;
+-        _error = 'صدای واضحی دریافت نشد. کمی نزدیک‌تر صحبت کنید یا بنویسید.';
+-      });
+-      return;
+-    }
++    // The real VAD below checks speech. A dB threshold must not discard
++    // quiet speech before recognition or race with a second stop tap.
+     setState(() => _stage = _Stage.processing);
+     try {
+       final text = await _voice.finish((p) {
+--- original/lib/voice/operation_queue.dart
++++ 2.4.2/lib/voice/operation_queue.dart
+@@ -0,0 +1,11 @@
++/// Serializes recorder lifecycle operations, including asynchronous failures.
++/// Cancellation/disposal wait for native inference rather than interrupting it.
++class VoiceOperationQueue {
++  Future<void> _tail = Future<void>.value();
++
++  Future<T> run<T>(Future<T> Function() operation) {
++    final result = _tail.then<T>((_) => operation());
++    _tail = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
++    return result;
++  }
++}
+--- original/lib/voice/voice_native.dart
++++ 2.4.2/lib/voice/voice_native.dart
+@@ -3,6 +3,7 @@
+ import 'package:flutter/services.dart';
+ import 'speech_presence.dart';
+ import 'inference_gate.dart';
++import 'operation_queue.dart';
+ import '../models/model_manager.dart';
+ import 'package:path/path.dart' as p;
+ import 'package:path_provider/path_provider.dart';
+@@ -14,11 +15,21 @@
+   final _recorder = AudioRecorder();
+   String? _audio;
+   bool _busy = false;
++  bool _disposed = false;
++  final _operations = VoiceOperationQueue();
+   bool get supported => Platform.isAndroid || Platform.isIOS;
+   Future<File> _model() async => File(await ModelManager.modelPath());
+   Future<bool> ready() => ModelManager.ready();
+   Future<void> importModel() => ModelManager.importAsr();
+-  Future<void> start() async {
++  Future<T> _run<T>(Future<T> Function() operation) =>
++      _operations.run(() async {
++        if (_disposed) throw StateError('صفحهٔ ضبط بسته شده است.');
++        return operation();
++      });
++
++  Future<void> start() => _run(_start);
++  Future<void> _start() async {
++    if (_audio != null) throw StateError('ضبط قبلی هنوز تمام نشده است.');
+     if (_busy || InferenceGate.busy) {
+       throw StateError('پردازش صدای قبلی هنوز تمام نشده؛ چند لحظه صبر کن.');
+     }
+@@ -31,28 +42,43 @@
+       (await getTemporaryDirectory()).path,
+       'alo_voice_${DateTime.now().microsecondsSinceEpoch}.wav',
+     );
+-    await _recorder.start(
+-      const RecordConfig(
+-        encoder: AudioEncoder.wav,
+-        sampleRate: 16000,
+-        numChannels: 1,
+-        autoGain: true,
+-        echoCancel: true,
+-        noiseSuppress: true,
+-      ),
+-      path: _audio!,
+-    );
++    try {
++      await _recorder.start(
++        const RecordConfig(
++          encoder: AudioEncoder.wav,
++          sampleRate: 16000,
++          numChannels: 1,
++          autoGain: true,
++          echoCancel: true,
++          noiseSuppress: true,
++        ),
++        path: _audio!,
++      );
++    } catch (_) {
++      try {
++        await _cancel();
++      } catch (_) {
++        // Keep the original recording/permission error.
++      }
++      rethrow;
++    }
+   }
+ 
+   Future<double> amplitude() async => (await _recorder.getAmplitude()).current;
+-  Future<String> finish(void Function(int) onProgress) async {
+-    final path = await _recorder.stop();
+-    if (path == null) {
+-      throw StateError('صدا ضبط نشد؛ دوباره تلاش کنید یا بنویسید.');
+-    }
++  Future<String> finish(void Function(int) onProgress) =>
++      _run(() => _finish(onProgress));
++  Future<String> _finish(void Function(int) onProgress) async {
++    final originalPath = _audio;
++    if (originalPath == null) throw StateError('ضبط فعالی وجود ندارد.');
++    String? stoppedPath;
+     _busy = true;
+     var entered = false;
+     try {
++      stoppedPath = await _recorder.stop();
++      final path = stoppedPath;
++      if (path == null) {
++        throw StateError('صدا ضبط نشد؛ دوباره تلاش کنید یا بنویسید.');
++      }
+       InferenceGate.enter();
+       entered = true;
+       final f = File(path);
+@@ -105,31 +131,59 @@
+       return text;
+     } finally {
+       if (entered) InferenceGate.leave();
++      if (stoppedPath == null) {
++        try {
++          await _recorder.cancel();
++        } catch (_) {
++          // Preserve the stop error; cleanup still runs below.
++        }
++      }
+       _busy = false;
+-      for (final name in [path, '$path.wav']) {
++      _audio = null;
++      for (final name in {
++        originalPath,
++        '$originalPath.wav',
++        if (stoppedPath != null) stoppedPath,
++        if (stoppedPath != null) '$stoppedPath.wav',
++      }) {
+         final file = File(name);
+-        if (await file.exists()) {
++        try {
++          if (await file.exists()) await file.delete();
++        } on FileSystemException {
++          // Retry on next app startup; do not hide recognition errors.
++        }
++      }
++    }
++  }
++
++  Future<void> cancel() => _run(_cancel);
++  Future<void> _cancel() async {
++    final path = _audio;
++    try {
++      await _recorder.cancel();
++    } finally {
++      _audio = null;
++      if (path != null) {
++        for (final name in {path, '$path.wav'}) {
++          final file = File(name);
+           try {
+-            await file.delete();
+-          } catch (_) {
+-            /* Retry on next app startup. */
++            if (await file.exists()) await file.delete();
++          } on FileSystemException {
++            // Startup cleanup will retry temporary audio deletion.
+           }
+         }
+       }
+-      _audio = null;
+     }
+   }
+ 
+-  Future<void> cancel() async {
+-    if (_busy) return; // No unsafe interruption of a native inference call.
+-    await _recorder.cancel();
+-    final path = _audio;
+-    _audio = null;
+-    if (path != null && await File(path).exists()) await File(path).delete();
+-  }
+-
+-  Future<void> dispose() async {
+-    await cancel();
+-    await _recorder.dispose();
+-  }
++  // Queued after inference: never free a recorder during native processing.
++  Future<void> dispose() => _operations.run(() async {
++    if (_disposed) return;
++    _disposed = true;
++    try {
++      await _cancel();
++    } finally {
++      await _recorder.dispose();
++    }
++  });
+ }
+--- original/pubspec.yaml
++++ 2.4.2/pubspec.yaml
+@@ -1,7 +1,7 @@
+ name: alo_simple
+ description: Private offline Persian voice personal finance for iOS and Android.
+ publish_to: none
+-version: 2.4.1+6
++version: 2.4.2+7
+ environment:
+   sdk: '>=3.7.0 <4.0.0'
+ dependencies:
+--- original/test/refinement_v242_test.dart
++++ 2.4.2/test/refinement_v242_test.dart
+@@ -0,0 +1,80 @@
++import 'dart:async';
++import 'package:flutter_test/flutter_test.dart';
++import 'package:alo_simple/domain/persian_number_parser.dart';
++import 'package:alo_simple/domain/persian_text_normalizer.dart';
++import 'package:alo_simple/domain/entry.dart';
++import 'package:alo_simple/domain/parser.dart';
++import 'package:alo_simple/voice/operation_queue.dart';
++
++void main() {
++  for (final input in [
++    '1,0000',
++    '1234,567',
++    '1,234,56',
++    '12٬345٬67',
++    '۱٬۰۰۰۰',
++  ]) {
++    test('malformed digit grouping is never silently repaired: $input', () {
++      expect(PersianNumberParser.integer(input), isNull);
++      final e = NoteParser().parse('$input تومان پرداخت کردم', Space.personal);
++      expect(e.saveBlockReason, isNotNull);
++    });
++  }
++  for (final pair in <String, int>{
++    '۱٬۲۳۴٬۵۶۷': 1234567,
++    '12,345': 12345,
++    '۱۲٬۳۴۵٫۵ هزار': 12345500,
++    'هزار میلیون': 1000000000,
++    'دو هزار میلیون': 2000000000,
++    'دو میلیون و نیم': 2500000,
++  }.entries) {
++    test('valid exact numeric forms remain supported: ${pair.key}', () {
++      expect(PersianNumberParser.integer(pair.key), pair.value);
++    });
++  }
++  test('punctuation after a valid grouped number is preserved', () {
++    expect(PersianTextNormalizer.normalize('۱٬۲۳۴، نان'), '1234، نان');
++    expect(PersianTextNormalizer.normalize('1,234, نان'), '1234, نان');
++  });
++  for (final input in ['هزار هزار', 'هزار و هزار', 'میلیون میلیون']) {
++    test('repeated empty scale is ambiguous: $input', () {
++      expect(PersianNumberParser.integer(input), isNull);
++    });
++  }
++  test('recorder operations remain serial across await boundaries', () async {
++    final queue = VoiceOperationQueue();
++    final release = Completer<void>();
++    final started = Completer<void>();
++    final events = <String>[];
++    final inference = queue.run(() async {
++      events.add('inference-start');
++      started.complete();
++      await release.future;
++      events.add('inference-end');
++      return 'text';
++    });
++    final cancel = queue.run(() async => events.add('cancel'));
++    final dispose = queue.run(() async => events.add('dispose'));
++    await started.future;
++    expect(events, ['inference-start']);
++    release.complete();
++    expect(await inference, 'text');
++    await cancel;
++    await dispose;
++    expect(events, ['inference-start', 'inference-end', 'cancel', 'dispose']);
++  });
++  test('a failed recorder operation does not poison the queue', () async {
++    final queue = VoiceOperationQueue();
++    final failed = queue.run<int>(() async => throw StateError('stop failed'));
++    final next = queue.run(() async => 42);
++    await expectLater(failed, throwsStateError);
++    expect(await next, 42);
++  });
++  test('synchronous operation failures also allow cleanup', () async {
++    final queue = VoiceOperationQueue();
++    final failed = queue.run<void>(() => throw StateError('platform failure'));
++    final cleanup = queue.run(() async => true);
++    await expectLater(failed, throwsStateError);
++    expect(await cleanup, isTrue);
++  });
++}

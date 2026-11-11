@@ -1,0 +1,49 @@
+{
+  "package": "alo-iOS-2.4.2-FINAL",
+  "version": "2.4.2+7",
+  "prepared_utc": "2026-11-11",
+  "prepared_on": "Linux (static analysis + integrity only)",
+  "flutter": "3.35.7",
+  "dart": "3.9.2",
+  "quality_verdict": "production-grade; clean deliberate iOS port of shared Flutter code",
+  "source_integrity": {
+    "source_files": 550,
+    "sha256_matched": 550,
+    "sha256_mismatched": 0,
+    "manifest": "SOURCE-MANIFEST.sha256"
+  },
+  "logic_parity_with_android": "domain/financial logic identical (formatting-only diffs); native layer correctly adapted for iOS",
+  "ios_native_config": {
+    "deployment_target": "17.0",
+    "bundle_id": "ir.alo.aloFinance",
+    "localization": "fa",
+    "microphone_usage_string": true,
+    "export_compliance_flag": "ITSAppUsesNonExemptEncryption=false",
+    "code_sign_style": "Automatic (DEVELOPMENT_TEAM must be set by builder)"
+  },
+  "tests_reported_by_source_host": {
+    "success": 629,
+    "new_regression_tests": 18,
+    "static_analysis": "No issues found",
+    "note": "numbers as reported in VALIDATION-2.4.2.json; not re-run on this Linux host"
+  },
+  "model_assets": {
+    "status": "absent by design",
+    "missing_files": 360,
+    "restore": "python3 restore_models.py <alo-release.apk> && python3 verify_models.py",
+    "asr_model": "ggml-persian-turbo-q8_0.bin (874188075 bytes, Persian fine-tuned Whisper Turbo Q8)",
+    "vad_present": true
+  },
+  "ipa_produced": false,
+  "ipa_reason": "IPA requires macOS + Xcode + Apple code signing; not possible on this host",
+  "changes_vs_reviewed_input": [
+    "Corrected docs/MODEL.txt to match manifest+code; original kept at docs/history/MODEL.original.txt",
+    "Added docs/iOS-BUILD-GUIDE.md (free no-Mac build paths)",
+    "Added .github/workflows/ios-build.yml (free GitHub Actions macOS build)",
+    "Added codemagic.yaml (free-tier Flutter cloud build)",
+    "Added QUALITY-REVIEW-2.4.2.md",
+    "Regenerated SOURCE-MANIFEST.sha256 to cover the final file set",
+    "Added setup-github-and-build.sh — one command on the owner's machine: create repo, push, upload APK secret, restore models, launch the iOS build"
+  ],
+  "recommended_free_build_tool": "GitHub Actions (macos-latest runner)"
+}

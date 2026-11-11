@@ -1,0 +1,32 @@
+# alo 2.4.2 — Model assets (authoritative)
+# Source of truth for sizes/hashes: assets/model_manifest.json  (NOT this file)
+# Corrected 2026-11-11: previous version of this note listed an older
+# small multilingual ASR model that no longer matches the manifest or the code.
+
+ASR (embedded, required):
+  bundle path : assets/models/ggml-persian-turbo-q8_0.bin
+  runtime copy: alo-persian-turbo-v23.bin   (see lib/models/model_manager_native.dart)
+  model       : Persian fine-tuned Whisper "Turbo", Q8_0 quantization
+  size        : 874188075 bytes
+  sha256      : 8e6f6bbfcb097c2afd61cebd4639afc1f94cb0e3ee9eb7ea099e11d4b5ef0885
+
+TTS (embedded, required): 359 pinned files under assets/tts/
+  engine      : sherpa-onnx VITS, voice vits-piper-fa_IR-amir-medium
+  phonemizer  : espeak-ng data (assets/tts/espeak-ng-data/)
+  voice source: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-fa_IR-amir-medium.tar.bz2
+
+VAD (embedded, present in this archive):
+  path        : assets/vad/silero_vad.onnx
+  license     : assets/licenses/Silero-VAD-MIT.txt
+
+Delivery note:
+  The source ZIP and the APK intentionally EXCLUDE the ASR + TTS binaries (360 files
+  total) to keep size down and avoid redistributing model weights. They are restored,
+  byte-exact and hash-verified, from a released alo APK:
+
+      python3 restore_models.py /path/to/alo-2.4.2-Offline-Financial.apk
+      python3 verify_models.py        # must print: All 360 ASR/TTS model assets match
+
+  Legacy note: the earlier multilingual model ggml-small-q5_1.bin (190085487 bytes,
+  sha256 ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb) is NOT used
+  by 2.4.2 and is kept only for historical reference in docs/history/MODEL.original.txt.

@@ -1,0 +1,5 @@
+# Persian voice pipeline — 2.2
+Recording: WAV PCM16 mono 16kHz, maximum 60 seconds; device auto-gain/echo/noise suppression requested, platform support varies. An amplitude guard and Silero VAD presence check run before local Whisper. VAD does not crop the syllables.
+STT: multilingual Whisper Small Q5_1, fa, no translation, no previous context, non-speech token suppression, generic nonnumeric Persian prompt. Raw transcript is retained separately from user correction. Accuracy on real Android recordings has not been measured.
+TTS: optional local Piper Amir/Sherpa-ONNX package installed via validated ZIP; Persian numbers expanded for speech, temporary WAV removed after playback. A shared guard serializes heavyweight STT/TTS inference.
+Models are not embedded in APK. ASR may be downloaded once from its pinned public URL, or imported offline. Only model download uses network; no audio or transaction text is sent to a transcription API. After setup, recording/transcription/synthesis are local.

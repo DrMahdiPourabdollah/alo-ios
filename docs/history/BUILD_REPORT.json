@@ -1,0 +1,30 @@
+{
+  "version": "2.2.0+3",
+  "build_mode": "release",
+  "abi": "arm64-v8a",
+  "min_sdk": 24,
+  "signing": "development/debug certificate, not a store release signing key",
+  "flutter": "3.35.7",
+  "dart": "3.9.2",
+  "analyze": "No issues found",
+  "tests_passed": 529,
+  "tests_failed": 0,
+  "text_fixtures": {
+    "numbers": 316,
+    "synthetic_financial_sentences": 100
+  },
+  "physical_android_tested": false,
+  "asr_accuracy_measured": false,
+  "apk_bytes": 70180428,
+  "apk_sha256": "1a982f763aef705e53d8a31d03b478d2d16b36b88f5318c49bf0b4da30ec333f",
+  "native_libs": 17,
+  "native_load_alignment_min": 16384,
+  "large_models_embedded": false,
+  "asr_bytes": 190085487,
+  "model_install": "one-time download or local BIN; optional local TTS ZIP",
+  "known_limitations": [
+    "fractional quantities require correction",
+    "multiple transactions per sentence require separate drafts",
+    "RAM/performance/battery and real speech not benchmarked on physical Android"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "version": "2.4.2+7",
+  "platform_source": "ios",
+  "validation_host": "Linux",
+  "flutter": "3.35.7",
+  "dart": "3.9.2",
+  "static_analysis": "No issues found",
+  "test_command": "flutter test --no-pub --reporter json",
+  "test_results": {
+    "success": 629
+  },
+  "test_run_success": true,
+  "new_regression_tests": 18,
+  "model_manifest_unchanged": true,
+  "missing_asr_tts_files": 360,
+  "model_weights_restored": false,
+  "vad_asset_present": true,
+  "native_android_build": "not applicable to this archive",
+  "native_ios_build": "NOT RUN: Linux host lacks macOS/Xcode; model assets also absent",
+  "apk_produced": false,
+  "ipa_produced": false,
+  "physical_device_test": "NOT RUN",
+  "native_microphone_test": "NOT RUN",
+  "speech_accuracy_benchmark": "NOT RUN",
+  "tts_audio_benchmark": "NOT RUN",
+  "verification_date_utc": "2026-10-11",
+  "test_log_sha256": "db4bf6eef1b951efb7ea04493ecf57a0d0b6eb8c47397318da2602d5b7be2067"
+}

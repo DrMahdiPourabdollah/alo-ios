@@ -1,0 +1,97 @@
+name: Build iOS (alo)
+
+# Free macOS build for the alo 2.4.2 Flutter app.
+# - Public repo: unlimited free minutes.  Private repo: 2000 free min/month.
+# - By default produces an UNSIGNED build (compile proof + simulator/app bundle).
+# - To get a SIGNED alo.ipa, add the code-signing secrets described at the bottom
+#   and set BUILD_SIGNED=true in the workflow dispatch inputs.
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_signed:
+        description: "Build a signed IPA (requires signing secrets)"
+        type: boolean
+        default: false
+  push:
+    branches: [ main ]
+
+env:
+  FLUTTER_VERSION: "3.35.7"
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter ${{ env.FLUTTER_VERSION }}
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # ---- Model assets (360 ASR/TTS files) ---------------------------------
+      # The release APK is NOT committed. Provide it as a base64 secret so the
+      # exact, hash-verified models are restored inside the runner.
+      - name: Restore model assets from release APK
+        if: ${{ secrets.ALO_RELEASE_APK_B64 != '' }}
+        run: |
+          echo "${{ secrets.ALO_RELEASE_APK_B64 }}" | base64 --decode > alo-release.apk
+          python3 restore_models.py "$PWD/alo-release.apk"
+          python3 verify_models.py
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      - name: Static analysis
+        run: flutter analyze
+
+      - name: Unit & widget tests
+        run: flutter test --no-pub
+
+      # ---- Unsigned build (always, free) ------------------------------------
+      - name: Build unsigned iOS app
+        if: ${{ github.event.inputs.build_signed != 'true' }}
+        run: flutter build ios --release --no-codesign
+
+      - name: Package unsigned Runner.app
+        if: ${{ github.event.inputs.build_signed != 'true' }}
+        run: |
+          cd build/ios/iphoneos
+          mkdir -p Payload && cp -R Runner.app Payload/
+          zip -r -q "$GITHUB_WORKSPACE/alo-unsigned.ipa" Payload
+          # NOTE: unsigned .ipa installs only after re-signing (Sideloadly/AltStore).
+
+      - name: Upload unsigned artifact
+        if: ${{ github.event.inputs.build_signed != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: alo-ios-unsigned
+          path: alo-unsigned.ipa
+
+      # ---- Signed IPA (optional) --------------------------------------------
+      # Requires: APPLE_DEVELOPMENT_TEAM, plus an .p12 cert + provisioning
+      # profile imported via a step such as apple-actions/import-codesign-certs.
+      - name: Build signed IPA
+        if: ${{ github.event.inputs.build_signed == 'true' }}
+        run: |
+          flutter build ipa --release \
+            --export-options-plist=ios/ExportOptions.plist
+
+      - name: Upload signed IPA
+        if: ${{ github.event.inputs.build_signed == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: alo-ios-signed
+          path: build/ios/ipa/*.ipa
+
+# ---------------------------------------------------------------------------
+# Secrets to add under  Settings -> Secrets and variables -> Actions :
+#   ALO_RELEASE_APK_B64   base64 of the released alo APK (for model restore)
+#   APPLE_DEVELOPMENT_TEAM, plus your signing certificate (.p12) + profile,
+#   if you want a signed IPA straight from CI.
+# ---------------------------------------------------------------------------
